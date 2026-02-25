@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>다미의 그림 그리기 나라</title>
+    <style>
+        body { 
+            text-align: center; background-color: #FFF5F7; margin: 0; 
+            font-family: 'Apple SD Gothic Neo', sans-serif;
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+        }
+        .header { 
+            background: #FF9EBB; padding: 12px; color: white; font-weight: bold; 
+            position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+        }
+        
+        .canvas-wrap {
+            position: relative; display: inline-block; margin: 20px auto;
+            background-size: contain; background-repeat: no-repeat; background-position: center;
+            background-color: white; border: 4px solid #FF9EBB; border-radius: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); overflow: hidden;
+            touch-action: none; /* 그림 그리기 영역 보호 */
+        }
+        canvas { display: block; }
+        
+        .controls { 
+            background: white; margin: 10px; padding: 15px; border-radius: 20px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 60px;
+        }
+        .row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .row label { font-weight: bold; color: #FF69B4; font-size: 13px; min-width: 65px; text-align: left; }
+        input[type=range] { flex: 1; accent-color: #FF9EBB; }
+
+        .scroll-box { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; -webkit-overflow-scrolling: touch; }
+        .scroll-box::-webkit-scrollbar { display: none; }
+        
+        .thumb { flex: 0 0 70px; height: 70px; border: 2px solid #eee; border-radius: 12px; background-size: cover; background-position: center; cursor: pointer; }
+        .thumb.active { border: 3px solid #FF9EBB; transform: scale(1.05); }
+
+        .color-btn { flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%; border: 2px solid #eee; cursor: pointer; }
+        .selected { border: 3px solid #333 !important; transform: scale(1.15); }
+        
+        .btn-group { display: flex; justify-content: center; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
+        .btn { padding: 12px 20px; border-radius: 15px; border: none; font-weight: bold; font-size: 14px; cursor: pointer; }
+        .save { background: #64C379; color: white; }
+        .reset { background: #FF9EBB; color: white; }
+        .eraser { background: #f0f0f0; border: 1px solid #ccc; color: #555; }
+        .eraser.active { background: #FFD700; border: 2px solid #333; }
+    </style>
+</head>
+<body>
+    <div class="header">👸 다미의 그림 그리기</div>
+    
+    <div class="canvas-wrap" id="canvasWrap">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="controls">
+        <div class="row">
+            <label>화면 넓이</label>
+            <input type="range" id="canvasW" min="250" max="1200" value="350">
+        </div>
+        <div class="row">
+            <label>화면 높이</label>
+            <input type="range" id="canvasH" min="200" max="1500" value="500">
+        </div>
+        <div class="row">
+            <label>붓 굵기</label>
+            <input type="range" id="lineWidth" min="2" max="60" value="15">
+        </div>
+
+        <div class="row"><label>색상 선택</label></div>
+        <div id="palette" class="scroll-box"></div>
+
+        <div class="row"><label>도안 선택</label></div>
+        <div id="templateList" class="scroll-box"></div>
+
+        <div class="btn-group">
+            <button id="eraserBtn" class="btn eraser" onclick="toggleEraser()">🧽 지우개</button>
+            <button class="btn save" onclick="saveImage()">📸 사진 저장</button>
+            <button class="btn reset" onclick="clearCanvas()">✨ 다시하기</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const canvasWrap = document.getElementById('canvasWrap');
+        const lineSlider = document.getElementById('lineWidth');
+        const wSlider = document.getElementById('canvasW');
+        const hSlider = document.getElementById('canvasH');
+        let painting = false;
+        let isEraser = false;
+        let color = "#FF69B4";
+
+        const colorList = ["#FF0000", "#FF4500", "#DC143C", "#B22222", "#8B0000", "#FF6347", "#FF7F50", "#FF69B4", "#FF1493", "#C71585", "#FFB7C5", "#F08080", "#FF8C00", "#FFA500", "#FFD700", "#FFFF00", "#FFFACD", "#FAFAD2", "#FFFFE0", "#BDB76B", "#ADFF2F", "#7FFF00", "#00FF00", "#32CD32", "#008000", "#228B22", "#006400", "#90EE90", "#3CB371", "#2E8B57", "#00FA9A", "#00FF7F", "#E0FFFF", "#00FFFF", "#AFEEEE", "#7FFFD4", "#40E0D0", "#00CED1", "#5F9EA0", "#4682B4", "#B0C4DE", "#87CEEB", "#00BFFF", "#1E90FF", "#6495ED", "#4169E1", "#0000FF", "#0000CD", "#000080", "#191970", "#E6E6FA", "#D8BFD8", "#DDA0DD", "#EE82EE", "#DA70D6", "#BA55D3", "#9932CC", "#9400D3", "#8A2BE2", "#4B0082", "#F5F5DC", "#FFE4C4", "#8B4513", "#000000"];
+               const templates = [
+            '',
+            'https://cdn.woocoloring.com/wp-content/uploads/Aladdin-and-Jasmines-Victory-pdf-791x1024.jpg',
+            'https://www.crayola.com/images/default-source/coloring-page-images/characters/1751.gif?sfvrsn=f67610bc_4',
+            'https://www.justcolor.net/kids/wp-content/uploads/sites/12/nggallery/princesses/coloring-pages-for-children-princesses-69021.jpeg',
+            'https://www.crayola.com/images/default-source/coloring-page-images/characters/tiana-coloring-page-disney-princess-coloring-sheet.png?sfvrsn=311bce6f_5',
+            'https://i.pinimg.com/736x/6a/ef/cb/6aefcbe255c9f0454dd67d32ae6a2385.jpg',
+            'https://saegchil.co.kr/wp-content/uploads/2024/12/tiniping-11-saegchil.jpg',
+            'https://saegchil.co.kr/wp-content/uploads/2024/12/tiniping-10-saegchil.jpg',
+            'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTJlORGM5pf6lDiLld_sQB4rJu0Qex4M6I18g&s',
+            'https://i.pinimg.com/236x/27/72/07/27720781060dc58712f7a596f40bd823.jpg',
+            'https://saegchil.co.kr/wp-content/uploads/2024/12/gwiyeoun-tiniping-inswae-ganeung-saegchil.jpg',
+            'https://hellokidslabs.github.io/img/coloring/animation/teenieping/dessert-catch-teenieping-coloring-pages-8.jpg',
+            'https://i.pinimg.com/236x/64/39/7f/64397f267340189e72d50446a73616f5.jpg',
+            'https://i.pinimg.com/736x/52/a4/f3/52a4f34e04759232627e1b7b56f6c827.jpg',
+
+        ];
+
+        // 사이즈 변경 함수 (여기서는 리사이즈 시 그림 유지)
+        function updateSize() {
+            const temp = canvas.toDataURL();
+            canvas.width = wSlider.value;
+            canvas.height = hSlider.value;
+            canvasWrap.style.width = canvas.width + "px";
+            canvasWrap.style.height = canvas.height + "px";
+            const img = new Image();
+            img.onload = () => { ctx.drawImage(img, 0, 0); ctx.lineCap = "round"; ctx.lineJoin = "round"; };
+            img.src = temp;
+        }
+
+        wSlider.max = window.innerWidth - 40;
+        wSlider.value = window.innerWidth - 50;
+        hSlider.value = 500;
+        updateSize();
+        wSlider.addEventListener('input', updateSize);
+        hSlider.addEventListener('input', updateSize);
+
+        // 팔레트 생성
+        colorList.forEach(c => {
+            const btn = document.createElement('div');
+            btn.className = 'color-btn' + (c === color ? ' selected' : '');
+            btn.style.background = c;
+            btn.onclick = () => {
+                color = c; isEraser = false;
+                document.getElementById('eraserBtn').classList.remove('active');
+                document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+            };
+            document.getElementById('palette').appendChild(btn);
+        });
+
+        // 🌟 도안 선택 시 캔버스 지우기 로직
+        function setTemplate(url, el) {
+            // 1. 배경 이미지 변경
+            canvasWrap.style.backgroundImage = `url('${url}')`;
+            // 2. 🌟 기존 색칠된 내용 삭제
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // 3. 썸네일 활성화 표시
+            if(el) {
+                document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
+                el.classList.add('active');
+            }
+        }
+
+        templates.forEach((url, i) => {
+            const thumb = document.createElement('div');
+            thumb.className = 'thumb' + (i === 0 ? ' active' : '');
+            thumb.style.backgroundImage = `url('${url}')`;
+            thumb.onclick = () => setTemplate(url, thumb);
+            document.getElementById('templateList').appendChild(thumb);
+        });
+        setTemplate(templates[0]);
+
+        // 드로잉 로직
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        }
+        function start(e) { painting = true; ctx.beginPath(); ctx.moveTo(getPos(e).x, getPos(e).y); }
+        function draw(e) {
+            if (!painting) return;
+            const pos = getPos(e);
+            ctx.lineWidth = lineSlider.value;
+            ctx.lineCap = "round"; ctx.lineJoin = "round";
+            ctx.strokeStyle = isEraser ? "#FFFFFF" : color;
+            ctx.globalAlpha = isEraser ? 1.0 : 0.9;
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        }
+        function toggleEraser() { isEraser = !isEraser; document.getElementById('eraserBtn').classList.toggle('active'); }
+        function clearCanvas() { if(confirm("그린 내용을 지울까요?")) ctx.clearRect(0, 0, canvas.width, canvas.height); }
+        function saveImage() {
+            const dataUrl = canvas.toDataURL("image/png");
+            const win = window.open();
+            win.document.write('<img src="' + dataUrl + '" style="width:100%; border:4px solid #FF9EBB; border-radius:20px;"><p style="text-align:center; font-weight:bold; color:#FF69B4;">길게 눌러서 사진첩에 저장하세요!</p>');
+        }
+
+        canvas.addEventListener("touchstart", (e) => { e.preventDefault(); start(e); }, {passive: false});
+        canvas.addEventListener("touchmove", (e) => { e.preventDefault(); draw(e); }, {passive: false});
+        window.addEventListener("touchend", () => painting = false);
+        canvas.addEventListener("mousedown", start);
+        canvas.addEventListener("mousemove", draw);
+        window.addEventListener("mouseup", () => painting = false);
+    </script>
+</body>
+</html>
