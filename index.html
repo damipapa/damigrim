@@ -10,12 +10,12 @@
             font-family: 'Apple SD Gothic Neo', sans-serif;
             overflow-y: auto; -webkit-overflow-scrolling: touch;
         }
-        /* 상단 네모박스 및 텍스트 색상 변경 */
+        
         .header { 
             background: #97e4ff; padding: 12px; color: white; font-weight: bold; 
             position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
         }
-        /* 그림그리기 테두리 색상 및 두께 변경 */
+        
         .canvas-wrap {
             position: relative; display: inline-block; margin: 20px auto;
             background-size: contain; background-repeat: no-repeat; background-position: center;
@@ -29,9 +29,8 @@
             background: white; margin: 10px; padding: 15px; border-radius: 20px; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 60px;
         }
-        
         .row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-        .row label { font-weight: bold; color: #97e4ff; font-size: 13px; min-width: 65px; text-align: left; }
+        .row label { font-weight: bold; color: #FF69B4; font-size: 13px; min-width: 65px; text-align: left; }
         input[type=range] { flex: 1; accent-color: #97e4ff; }
 
         .scroll-box { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; -webkit-overflow-scrolling: touch; }
@@ -95,7 +94,6 @@
         let painting = false;
         let isEraser = false;
         let color = "#FF69B4";
-        let currentTemplateUrl = "";
 
         const colorList = ["#FF0000", "#FF4500", "#DC143C", "#B22222", "#8B0000", "#FF6347", "#FF7F50", "#FF69B4", "#FF1493", "#C71585", "#FFB7C5", "#F08080", "#FF8C00", "#FFA500", "#FFD700", "#FFFF00", "#FFFACD", "#FAFAD2", "#FFFFE0", "#BDB76B", "#ADFF2F", "#7FFF00", "#00FF00", "#32CD32", "#008000", "#228B22", "#006400", "#90EE90", "#3CB371", "#2E8B57", "#00FA9A", "#00FF7F", "#E0FFFF", "#00FFFF", "#AFEEEE", "#7FFFD4", "#40E0D0", "#00CED1", "#5F9EA0", "#4682B4", "#B0C4DE", "#87CEEB", "#00BFFF", "#1E90FF", "#6495ED", "#4169E1", "#0000FF", "#0000CD", "#000080", "#191970", "#E6E6FA", "#D8BFD8", "#DDA0DD", "#EE82EE", "#DA70D6", "#BA55D3", "#9932CC", "#9400D3", "#8A2BE2", "#4B0082", "#F5F5DC", "#FFE4C4", "#8B4513", "#000000"];
                const templates = [
@@ -150,15 +148,17 @@
         });
 
         // 🌟 도안 선택 시 캔버스 지우기 로직
-       function setTemplate(url, el) {
-    currentTemplateUrl = url; // 현재 주소 저장
-    canvasWrap.style.backgroundImage = `url('${url}')`;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if(el) {
-        document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
-        el.classList.add('active');
-    }
-}
+        function setTemplate(url, el) {
+            // 1. 배경 이미지 변경
+            canvasWrap.style.backgroundImage = `url('${url}')`;
+            // 2. 🌟 기존 색칠된 내용 삭제
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // 3. 썸네일 활성화 표시
+            if(el) {
+                document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
+                el.classList.add('active');
+            }
+        }
 
         templates.forEach((url, i) => {
             const thumb = document.createElement('div');
@@ -189,47 +189,22 @@
         }
         function toggleEraser() { isEraser = !isEraser; document.getElementById('eraserBtn').classList.toggle('active'); }
         function clearCanvas() { if(confirm("그린 내용을 지울까요?")) ctx.clearRect(0, 0, canvas.width, canvas.height); }
-        function saveCombinedImage() {
-    const offCanvas = document.createElement('canvas');
-    const offCtx = offCanvas.getContext('2d');
-    offCanvas.width = canvas.width;
-    offCanvas.height = canvas.height;
+        function saveImage() {
+            const dataUrl = canvas.toDataURL("image/png");
+            const win = window.open();
+            win.document.write('<img src="' + dataUrl + '" style="width:100%; border:4px solid #FF9EBB; border-radius:20px;"><p style="text-align:center; font-weight:bold; color:#FF69B4;">길게 눌러서 사진첩에 저장하세요!</p>');
+        }
 
-    const bgImg = new Image();
-    bgImg.crossOrigin = "anonymous"; 
-    bgImg.src = currentTemplateUrl;
-    
-    bgImg.onload = function() {
-        offCtx.fillStyle = "white";
-        offCtx.fillRect(0, 0, offCanvas.width, offCanvas.height);
-        
-        const ratio = Math.min(offCanvas.width / bgImg.width, offCanvas.height / bgImg.height);
-        const nw = bgImg.width * ratio;
-        const nh = bgImg.height * ratio;
-        offCtx.drawImage(bgImg, (offCanvas.width - nw) / 2, (offCanvas.height - nh) / 2, nw, nh);
-        
-        offCtx.drawImage(canvas, 0, 0);
-        
-        const dataUrl = offCanvas.toDataURL("image/png");
-        const win = window.open();
-        win.document.write(`
-            <body style="margin:0; text-align:center; background:#FFF5F7;">
-                <p style="padding:15px; font-weight:bold; color:#FF69B4;">멋진 작품 완성!</p>
-                <img src="${dataUrl}" style="max-width:90%; border:5px solid white; border-radius:15px; box-shadow:0 0 15px rgba(0,0,0,0.2);">
-                <p style="padding:10px;">이미지를 꾹 눌러 '사진 저장' 하세요</p>
-                <button onclick="window.close()" style="padding:10px 20px; border-radius:10px; border:none; background:#FF9EBB; color:white;">창 닫기</button>
-            </body>
-        `);
-    };
-}
+        canvas.addEventListener("touchstart", (e) => { e.preventDefault(); start(e); }, {passive: false});
+        canvas.addEventListener("touchmove", (e) => { e.preventDefault(); draw(e); }, {passive: false});
+        window.addEventListener("touchend", () => painting = false);
+        canvas.addEventListener("mousedown", start);
+        canvas.addEventListener("mousemove", draw);
+        window.addEventListener("mouseup", () => painting = false);
     </script>
 </body>
 
 </html>
-
-
-
-
 
 
 
